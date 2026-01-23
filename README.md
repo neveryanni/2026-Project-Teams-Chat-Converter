@@ -17,7 +17,7 @@ I'm open for all suggestions to make everything better
 Will be adding stuff here once I receive some suggestions
 
 ## Authors and acknowledgment
-Author : Yanni Joshua Migallen || L2 Support Engineer
+Author : Yanni Joshua Migallen 
 
 ## License
 No idea what to put here
