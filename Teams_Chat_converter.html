@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teams Chat Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        /* --- CSS VARIABLES (THEMING) --- */
+        :root {
+            --bg-body: #f0f0f0;
+            --bg-header: #ffffff;
+            --bg-container: #ffffff;
+            --bg-dropzone: #fafafa;
+            --bg-dropzone-drag: #f0f8ff;
+            --bg-summary: #fafafa;
+            
+            --text-main: #252424;
+            --text-sub: #555;
+            --text-timestamp: #888;
+            --text-header: #2d4d2a;
+            
+            --border-color: #e1e1e1;
+            --border-drag: #4a90e2;
+            
+            --msg-bg-receiver: #f0f0f0;
+            --msg-bg-sender: #e7e7ff;
+            --msg-text-sender-name: #444;
+
+            --toggle-bg-off: #ccc;
+            --toggle-bg-on: #2d4d2a;
+            --icon-hover-bg: rgba(0,0,0,0.05);
+        }
+
+        /* DARK MODE VARIABLES */
+        body.dark-mode {
+            --bg-body: #1e1e1e;
+            --bg-header: #2a2a2a;
+            --bg-container: #252525;
+            --bg-dropzone: #2a2a2a;
+            --bg-dropzone-drag: #303840;
+            --bg-summary: #2d2d2d;
+            
+            --text-main: #e0e0e0;
+            --text-sub: #aaa;
+            --text-timestamp: #999;
+            --text-header: #A7D47C;
+            
+            --border-color: #444;
+            --border-drag: #5a9ee2;
+            
+            --msg-bg-receiver: #333333;
+            --msg-bg-sender: #3a3a5a;
+            --msg-text-sender-name: #ccc;
+
+            --toggle-bg-off: #555;
+            --toggle-bg-on: #A7D47C;
+            --icon-hover-bg: rgba(255,255,255,0.1);
+        }
+
+        /* --- GLOBAL STYLES --- */
+        body {
+            font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+            background-color: var(--bg-body);
+            margin: 0;
+            padding: 20px;
+            color: var(--text-main);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .page-header {
+            max-width: 900px;
+            margin: 0 auto 20px auto;
+            padding: 16px 24px;
+            background-color: var(--bg-header);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            border: 1px solid var(--border-color);
+            transition: background-color 0.3s, border-color 0.3s;
+            flex-wrap: wrap;
+        }
+        .page-header img {
+            height: 40px;
+            width: 40px;
+        }
+        .page-header h1 {
+            font-size: 1.5em;
+            font-weight: 600;
+            margin: 0;
+            color: var(--text-header);
+            white-space: nowrap;
+            margin-right: auto;
+        }
+        
+        .header-controls {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+        
+        /* --- USER SELECTOR --- */
+        select.user-selector {
+            padding: 8px 12px;
+            font-size: 0.9em;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            cursor: pointer;
+            max-width: 180px;
+            outline: none;
+        }
+
+        /* --- TOGGLE SWITCH --- */
+        .switch-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+        .switch input { 
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: var(--toggle-bg-off);
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        input:checked + .slider {
+            background-color: var(--toggle-bg-on);
+        }
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+        .toggle-icon {
+            font-size: 1.2em;
+            line-height: 1;
+        }
+
+        /* --- ICON BUTTONS --- */
+        .icon-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            color: var(--text-sub);
+            transition: background 0.2s, color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .icon-btn:hover {
+            background-color: var(--icon-hover-bg);
+            color: var(--text-main);
+        }
+        .icon-btn svg {
+            width: 24px;
+            height: 24px;
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+        }
+
+        /* --- DRAG & DROP --- */
+        #drop-zone {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 60px;
+            border: 3px dashed #b0b0b0;
+            border-radius: 12px;
+            background-color: var(--bg-dropzone);
+            text-align: center;
+            font-size: 1.2em;
+            color: var(--text-sub);
+            transition: all 0.3s ease;
+        }
+        #drop-zone.dragover {
+            border-color: var(--border-drag);
+            background-color: var(--bg-dropzone-drag);
+        }
+
+        #status {
+            text-align: center;
+            font-size: 1em;
+            color: var(--text-main);
+            margin-top: 20px;
+        }
+
+        /* --- CHAT CONTAINER --- */
+        .chat-container {
+            max-width: 800px;
+            margin: 20px auto;
+            background-color: var(--bg-container);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        .chat-header {
+            padding: 16px;
+            background-color: var(--bg-dropzone);
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+            font-size: 1.1em;
+            color: var(--text-main);
+        }
+        .message-list {
+            padding: 20px;
+            overflow-y: auto;
+            flex-grow: 1;
+            min-height: 70vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- MESSAGE LAYOUT --- */
+        .message {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 16px;
+            max-width: 85%;
+        }
+        .message-row {
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+        }
+        .message-bubble {
+            padding: 10px 14px;
+            border-radius: 18px;
+            position: relative;
+            color: var(--text-main);
+        }
+        .message-content p, .message-content div {
+            margin: 0;
+            padding: 0;
+        }
+        .message-sender-name {
+            font-weight: 600;
+            font-size: 0.85em;
+            margin-bottom: 4px;
+            color: var(--msg-text-sender-name);
+            margin-left: 4px; 
+            margin-right: 4px;
+        }
+        .message-timestamp {
+            font-size: 0.75em;
+            color: var(--text-timestamp);
+            margin-top: 5px;
+        }
+
+        /* --- AVATAR --- */
+        .avatar-circle {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            flex-shrink: 0;
+            text-transform: uppercase;
+        }
+
+        /* --- RECEIVER STYLES --- */
+        .receiver {
+            align-self: flex-start;
+        }
+        .receiver .message-bubble {
+            background-color: var(--msg-bg-receiver);
+            border-bottom-left-radius: 4px;
+        }
+        .receiver .message-timestamp {
+            text-align: left;
+            margin-left: 44px; 
+        }
+        .receiver .message-sender-name {
+            text-align: left;
+            margin-left: 44px;
+        }
+        
+        /* --- SENDER STYLES --- */
+        .sender {
+            align-self: flex-end;
+        }
+        .sender .message-row {
+            flex-direction: row-reverse; 
+        }
+        .sender .message-bubble {
+            background-color: var(--msg-bg-sender);
+            border-bottom-right-radius: 4px;
+        }
+        .sender .message-sender-name {
+            display: block;
+            text-align: right;
+            margin-right: 44px;
+        }
+        .sender .message-timestamp {
+            text-align: right;
+            margin-right: 44px;
+        }
+        
+        /* --- EVENT --- */
+        .event {
+            text-align: center;
+            font-size: 0.8em;
+            color: var(--text-timestamp);
+            margin: 10px 0;
+            align-self: center;
+            max-width: 100%;
+        }
+
+        /* --- SUMMARY STYLES --- */
+        .chat-footer-summary {
+            margin-top: 40px;
+            padding-top: 0;
+            border-top: 2px solid var(--border-color);
+            font-size: 0.9em;
+            color: var(--text-sub);
+            background-color: var(--bg-summary);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .summary-header {
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.2s;
+        }
+        .summary-header:hover {
+            background-color: rgba(0,0,0,0.03);
+        }
+        .summary-header h3 {
+            margin: 0;
+            color: var(--text-header);
+        }
+        
+        .summary-chevron {
+            transition: transform 0.3s ease;
+            font-size: 0.8em;
+            color: var(--text-timestamp);
+        }
+
+        .summary-grid {
+            display: none; /* Collapsed by Default */
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            padding: 0 20px 20px 20px;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .summary-item {
+            background: var(--bg-container);
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+        }
+        .summary-label {
+            font-weight: bold;
+            display: block;
+            font-size: 0.8em;
+            color: var(--text-timestamp);
+            text-transform: uppercase;
+        }
+
+        /* State: Open */
+        .chat-footer-summary.open .summary-grid {
+            display: grid;
+        }
+        .chat-footer-summary.open .summary-chevron {
+            transform: rotate(180deg);
+        }
+
+    </style>
+</head>
+<body>
+
+    <header class="page-header">
+        <img src="https://us-dc.keepit.com/public/theme-assets/background-images/theme-green/keepit_Logo_small.svg" alt="Keepit Logo">
+        <h1>Teams Chat Viewer</h1>
+        
+        <div class="header-controls">
+            <select id="user-selector" class="user-selector" style="display:none;">
+                <option value="" disabled selected>View as...</option>
+            </select>
+
+            <div class="switch-container" title="Toggle Dark Mode">
+                <span class="toggle-icon"☀️</span>
+                <label class="switch">
+                    <input type="checkbox" id="theme-toggle-input">
+                    <span class="slider round"></span>
+                </label>
+                <span class="toggle-icon">🌙</span>
+            </div>
+
+            <button id="download-btn" class="icon-btn" style="display:none;" title="Download PDF">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+            </button>
+            
+            <button id="restart-btn" class="icon-btn" style="display:none;" title="Start Over">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <polyline points="1 20 1 14 7 14"></polyline>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <div id="drop-zone">
+        <p>Drag & Drop your JSON chat files here (no folder)</p>
+    </div>
+    
+    <div id="status"></div>
+
+    <div id="chat-render-area">
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const statusEl = document.getElementById('status');
+        const renderArea = document.getElementById('chat-render-area');
+        const restartBtn = document.getElementById('restart-btn');
+        const downloadBtn = document.getElementById('download-btn');
+        const themeCheckbox = document.getElementById('theme-toggle-input');
+        const userSelector = document.getElementById('user-selector');
+
+        let globalMessages = [];
+        let globalUserIds = [];
+        let currentSenderId = null;
+
+        themeCheckbox.addEventListener('change', (e) => {
+            if(e.target.checked) {
+                document.body.classList.add('dark-mode');
+            } else {
+                document.body.classList.remove('dark-mode');
+            }
+        });
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                statusEl.textContent = `Processing ${files.length} files...`;
+                processFiles(files);
+            }
+        });
+        
+        restartBtn.addEventListener('click', restartApp);
+        downloadBtn.addEventListener('click', downloadPDF);
+        
+        userSelector.addEventListener('change', (e) => {
+            currentSenderId = e.target.value;
+            generateAndRenderHTML(globalMessages, currentSenderId);
+        });
+
+        async function processFiles(files) {
+            const messages = [];
+            const user_ids = new Set();
+            const fileReadPromises = [];
+
+            for (const file of files) {
+                if (file.type === 'application/json' || file.name.indexOf('.') === -1) {
+                    fileReadPromises.push(readFileAsText(file).then(text => {
+                        try {
+                            const data = JSON.parse(text);
+                            parseMessageData(data, messages, user_ids);
+                        } catch (err) {
+                            console.warn(`Could not parse JSON from file ${file.name}:`, err);
+                        }
+                    }));
+                } else {
+                    console.warn(`Skipping non-JSON file: ${file.name}`);
+                }
+            }
+
+            await Promise.all(fileReadPromises);
+
+            if (messages.length > 0) {
+                globalMessages = messages;
+                globalUserIds = Array.from(user_ids);
+                statusEl.textContent = `Successfully processed ${messages.length} messages.`;
+                populateUserSelector(globalMessages);
+                
+                const realUsers = globalUserIds.filter(id => id !== 'system');
+                currentSenderId = realUsers.length > 0 ? realUsers[0] : globalUserIds[0];
+                
+                userSelector.value = currentSenderId; 
+                generateAndRenderHTML(globalMessages, currentSenderId);
+                dropZone.style.display = 'none';
+                userSelector.style.display = 'block';
+            } else {
+                statusEl.textContent = 'No valid chat messages found in the dropped files.';
+            }
+        }
+
+        function readFileAsText(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(reader.error);
+                reader.readAsText(file);
+            });
+        }
+
+        function parseMessageData(data, messages, user_ids) {
+            const message_type = data.messageType;
+
+            if (message_type === 'message') {
+                if (!data.from || !data.from.user) return;
+                
+                const user_id = data.from.user.id;
+                const display_name = data.from.user.displayName;
+                const content = data.body ? data.body.content : '';
+                const timestamp = data.createdDateTime;
+
+                if (!user_id || !display_name || !content || !timestamp) return;
+                if (content === '<systemEventMessage/>') return;
+                
+                user_ids.add(user_id);
+                messages.push({
+                    user_id: user_id,
+                    display_name: display_name,
+                    content: content,
+                    timestamp: new Date(timestamp)
+                });
+
+            } else if (data.eventDetail) {
+                const event_type = data.eventDetail['@odata.type'];
+                const timestamp = new Date(data.createdDateTime);
+                let event_content = "System Event";
+
+                if (event_type === '#microsoft.graph.membersAddedEventMessageDetail') {
+                    event_content = "Members were added to the chat.";
+                }
+
+                messages.push({
+                    is_event: true,
+                    content: event_content,
+                    timestamp: timestamp,
+                    display_name: 'System',
+                    user_id: 'system'
+                });
+            }
+        }
+
+        function getInitials(name) {
+            if(!name) return "";
+            const parts = name.trim().split(/\s+/);
+            if (parts.length === 1) {
+                return parts[0].substring(0, 2).toUpperCase();
+            }
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+
+        function stringToColor(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const hue = Math.abs(hash % 360);
+            return `hsl(${hue}, 60%, 45%)`;
+        }
+
+        function populateUserSelector(messages) {
+            userSelector.innerHTML = '<option value="" disabled>View as...</option>';
+            const users = new Map();
+            messages.forEach(m => {
+                if(m.user_id !== 'system') {
+                    users.set(m.user_id, m.display_name);
+                }
+            });
+            users.forEach((name, id) => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = name;
+                userSelector.appendChild(option);
+            });
+        }
+
+        function generateAndRenderHTML(messages, senderId) {
+            messages.sort((a, b) => a.timestamp - b.timestamp);
+
+            const participant_names = [...new Set(messages
+                .filter(m => m.user_id !== 'system')
+                .map(m => m.display_name)
+            )];
+            const chat_title = `Chat with ${participant_names.join(', ')}`;
+            
+            const startDate = messages[0].timestamp.toLocaleString('en-US', { year:'numeric', month:'short', day:'numeric' });
+            const endDate = messages[messages.length - 1].timestamp.toLocaleString('en-US', { year:'numeric', month:'short', day:'numeric' });
+            
+            let messageListHTML = '';
+            for (const msg of messages) {
+                if (msg.is_event) {
+                    messageListHTML += `<div class="message event">${escapeHTML(msg.content)}</div>\n`;
+                    continue;
+                }
+                
+                const is_sender = msg.user_id === senderId;
+                const message_class = is_sender ? 'sender' : 'receiver';
+                
+                const formatted_time = msg.timestamp.toLocaleString('en-US', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                }).replace(',', '');
+
+                const initials = getInitials(msg.display_name);
+                const avatarColor = stringToColor(msg.display_name);
+
+                messageListHTML += `
+                    <div class="message ${message_class}">
+                        <div class="message-sender-name">${escapeHTML(msg.display_name)}</div>
+                        <div class="message-row">
+                            <div class="avatar-circle" style="background-color: ${avatarColor}">
+                                ${initials}
+                            </div>
+                            <div class="message-bubble">
+                                <div class="message-content">
+                                    ${msg.content} 
+                                </div>
+                            </div>
+                        </div>
+                        <div class="message-timestamp">${formatted_time}</div>
+                    </div>
+                `;
+            }
+
+            const summaryHTML = `
+                <div class="chat-footer-summary" id="summary-block">
+                    <div class="summary-header">
+                        <h3>Chat Summary</h3>
+                        <span class="summary-chevron">▼</span>
+                    </div>
+                    <div class="summary-grid">
+                        <div class="summary-item">
+                            <span class="summary-label">Total Messages</span>
+                            <span>${messages.length}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Participants</span>
+                            <span>${participant_names.length}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Timeline</span>
+                            <span>${startDate} — ${endDate}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const finalHTML = `
+                <div class="chat-container">
+                    <div class="chat-header">${escapeHTML(chat_title)}</div>
+                    <div class="message-list">
+                        ${messageListHTML}
+                        ${summaryHTML}
+                    </div>
+                </div>
+            `;
+            
+            renderArea.innerHTML = finalHTML;
+
+            const summaryBlock = document.getElementById('summary-block');
+            if(summaryBlock) {
+                summaryBlock.querySelector('.summary-header').addEventListener('click', () => {
+                    summaryBlock.classList.toggle('open');
+                });
+            }
+
+            restartBtn.style.display = 'flex'; 
+            downloadBtn.style.display = 'flex';
+        }
+        
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str.replace(/[&<>"']/g, function(m) {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                }[m];
+            });
+        }
+        
+        function restartApp() {
+            renderArea.innerHTML = '';
+            statusEl.textContent = '';
+            dropZone.style.display = 'block';
+            userSelector.style.display = 'none';
+            restartBtn.style.display = 'none';
+            downloadBtn.style.display = 'none';
+            globalMessages = [];
+            globalUserIds = [];
+        }
+
+        function downloadPDF() {
+            if (typeof html2pdf === 'undefined') {
+                statusEl.textContent = "Error: PDF library failed to load.";
+                return;
+            }
+            
+            const element = document.querySelector('.chat-container');
+            if (!element) {
+                statusEl.textContent = "Error: Could not find chat content.";
+                return;
+            }
+
+            // 1. HANDLE DARK MODE (Revert to light temporarily)
+            const wasDarkMode = document.body.classList.contains('dark-mode');
+            if (wasDarkMode) {
+                document.body.classList.remove('dark-mode');
+            }
+
+            // 2. HANDLE SUMMARY EXPANSION
+            // We force the summary open for the print, then revert it back
+            const summaryBlock = document.getElementById('summary-block');
+            let wasSummaryClosed = false;
+            if (summaryBlock && !summaryBlock.classList.contains('open')) {
+                wasSummaryClosed = true;
+                summaryBlock.classList.add('open'); // Open it for PDF
+            }
+            
+            const chatTitle = document.querySelector('.chat-header').textContent || 'Teams-Chat';
+            const filename = chatTitle.replace(/[^a-z0-9 -]/gi, '_').replace(/ /g, '-') + '.pdf';
+
+            const opt = {
+              margin:       [0.5, 0.5, 0.5, 0.5],
+              filename:     filename,
+              image:        { type: 'jpeg', quality: 0.98 },
+              html2canvas:  { scale: 2, useCORS: true },
+              jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
+              pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] } 
+            };
+
+            statusEl.textContent = 'Generating PDF... Please wait.';
+            
+            html2pdf().from(element).set(opt).save()
+                .then(() => {
+                    statusEl.textContent = 'PDF download complete.';
+                    
+                    // RESTORE PREVIOUS STATES
+                    if (wasDarkMode) document.body.classList.add('dark-mode');
+                    if (wasSummaryClosed && summaryBlock) summaryBlock.classList.remove('open');
+                })
+                .catch((err) => {
+                    console.error("An error occurred during PDF generation:", err);
+                    statusEl.textContent = 'PDF generation failed.';
+                    
+                    // RESTORE PREVIOUS STATES ON ERROR
+                    if (wasDarkMode) document.body.classList.add('dark-mode');
+                    if (wasSummaryClosed && summaryBlock) summaryBlock.classList.remove('open');
+                });
+        }
+    </script>
+</body>
+</html>
