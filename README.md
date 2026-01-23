@@ -10,13 +10,14 @@ The Teams Chat Converter is a browser-based tool that converts downloaded Micros
 Instead of the customer/partner previewing the chats individually, they can simply recreate the whole conversation with all the chats, just like how it looks like on Microsoft Teams chat app
 
 ## Support
-If you find anything that needs to be improved, please feel free to contact ymi@keepit.com. I'm open for all suggestions to make everything better
+If you find anything that needs to be improved, please feel free to contact ymi@keepit.com. 
+I'm open for all suggestions to make everything better
 
 ## Roadmap
 Will be adding stuff here once I receive some suggestions
 
 ## Authors and acknowledgment
-Author : Yanni Joshua Migallen L2 Support Engineer
+Author : Yanni Joshua Migallen || L2 Support Engineer
 
 ## License
 No idea what to put here
