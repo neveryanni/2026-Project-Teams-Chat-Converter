@@ -6,7 +6,6 @@ To use :
 3. Open the Teams Chat Converter Script html file in advance
 4. Ctrl + A and drag all files from the unzipped folder to the Team Chat Converter Script
 5. Profit!
-
 ## Name
 Teams Chat Converter
 
