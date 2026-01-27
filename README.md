@@ -1,5 +1,12 @@
 # Teams Chat Converter Script
-More info : https://confluence.off.keepit.com/spaces/PM/pages/261640760/Teams+Chats+Converter  
+More info : https://confluence.off.keepit.com/spaces/PM/pages/261640760/Teams+Chats+Converter 
+To use : 
+1. Download the "Post" Folder of your selected Teams Chat conversation (Connector -> Teams Chats -> Group Chat -> Posts)
+2. Unzip the folder and go inside the unzipped folder
+3. Open the Teams Chat Converter Script html file in advance
+4. Ctrl + A and drag all files from the unzipped folder to the Team Chat Converter Script
+5. Profit!
+
 ## Name
 Teams Chat Converter
 
