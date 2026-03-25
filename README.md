@@ -29,4 +29,4 @@ Author : Yanni Joshua Migallen
 No idea what to put here
 
 ## Project status
-Active and should work with no issues, if there's any please contact ymi@keepit.com
+Active and should work with no issues, if there's any please contact me
